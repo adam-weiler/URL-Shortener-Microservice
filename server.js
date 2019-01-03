@@ -17,9 +17,9 @@ const port = process.env.PORT || 3000;
 // This project needs a database.
 mongoose.connect(process.env.MONGO_URI, (err, db) => {
 	if (err) {
-		console.log('Database error: ' + err);
+		console.log('Database error: ', err);
 	} else {
-		console.log('Successful database connection');
+		console.log('Successful database connection.');
 
 		//app.use(cors());
 
@@ -31,6 +31,7 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 		}));
 
 		app.use('/public', express.static(process.cwd() + '/public'));
+
 
 		//Creates a URL model or Schema.
 		const urlSchema = new mongoose.Schema({
@@ -49,34 +50,17 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 
 		const REPLACE_REGEX = /^https?:\/\//i //A Regex to strip the http(s):// from any URLs.
 
-		//const url1 = 'https://google.ca';
-		//const url2 = 'google.ca';
-		//const url3 = 'http://google.ca';
 
-		//Strip off HTTP
-		//const res1 = url1.replace(REPLACE_REGEX, '');
-		//const res2 = url2.replace(REPLACE_REGEX, '');
-		//const res3 = url3.replace(REPLACE_REGEX, '');
-		//console.log (res1 + ' ' + res2 + ' ' + res3);
-
-    
 		app.get('/', function(req, res) {
 			res.sendFile(process.cwd() + '/views/index.html');
 		});
 
-    
-		// your first API endpoint... 
-		app.get("/api/hello", function(req, res) {
-			res.json({
-				greeting: 'hello API'
-			});
-		});
 
-
-		app.post("/api/shorturl/new", function(req, res) {
+		app.post("/api/shorturl/new", function(req, res) { //User hit 'POST URL' button.
 			let user_url = req.body.url; //Gets the URL from the body of the page.
 
 			if (!user_url) { //Checks if user_url is blank.
+				console.log("shorturl/new - catch: blank input.");
 				res.json({
 					"error": "invalid URL"
 				});
@@ -85,179 +69,104 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 			user_url = user_url.replace(REPLACE_REGEX, ''); //Strips off the http(s):// from the URL
 
 			dns.lookup(user_url, function onLookup(err, address, family) { //Checks if it's a valid URL.
-				if (err) {
-					console.log("dns.lookup - ", err);
+				if (err) { //There was not a valid dns.
+					console.log("dns.lookup - error: ", err);
 					res.json({
 						"error": "invalid URL"
 					});
-				} else {
-					console.log("dns.lookup - no error");
+				} else { //There was a valid dns.
+					console.log("dns.lookup - no error.");
 
-					//Check database if URL exists.
-					//ifSo, return id.
-
-					// findOneURL(user_url, function(err, data) { //Creates and saves new user to database.
-					// 	if (err) {
-					// 		res.json("Some error!");
-					// 	}
-					// 	res.json({
-					// 		"err": "no error!"
-					// 	});
-					// });
-
-					// findEditThenSave(user_url, function(err, data) { //Finds URL, edits, then saves.
-					// 	if (err) {
-					// 		console.log("findEditThenSave - Error");
-					// 	}
-					// 	console.log("findEditThenSave - Down here");
-					// });
-
-					//ifnot, add url to database
-					//return with id.
-
-					createAndSaveURL(user_url, function(err, data) { //Creates and saves new user to database.
+					findByURL(user_url, function(err, data) { //Checks if user_url is already in database.
 						if (err) {
-							console.log("createAndSaveURL - Error");
-							res.json({
-								"error": "Database error!"
-							});
+							console.log("findByURL - No user_url found: ", err);
 						} else {
-							console.log("createAndSaveURL - No Error");
-							// res.json({
-							// 	"original_url": user_url,
-							// 	"short_url": "8"
-							// });
+							console.log("findByURL - user_url was found: ", data);
+						}
+
+						if (!data) { //The record doesn't exist, need to add it.
+							countURLs(function(err, data) { //Counts number of records in database.
+								if (err) { //Was not able to count records.
+									console.log("countURLs - Error: ", err);
+									res.json({
+										"error": "Database error: .count"
+									});
+								} else { //Was able to count number of records.
+									let currCount = data;
+									console.log("countURLs - no error: ", currCount);
+
+									// createAndSaveURL(user_url, currCount, function(err, data) { //Creates and saves new user to database.
+									// 	if (err) { //Record not saved to database.
+									// 		console.log("createAndSaveURL - Error: ", err);
+									// 		res.json({
+									// 			"error": "Database error: .save"
+									// 		});
+									// 	} else { //New record saved to database.
+									// 		console.log("createAndSaveURL - No Error");
+									// 		res.json({
+									// 			"original_url": user_url,
+									// 			"short_url": currCount + 1
+									// 		});
+									// 	}
+									// });
+
+									findAndUpdateURL(user_url, currCount, function(err, data) {
+										if (err) { //Record not saved to database.
+											console.log("findAndUpdateURL - Error: ", err);
+											res.json({
+												"error": err
+											});
+										} else { //New record saved to database.
+											console.log("findAndUpdateURL - No Error");
+											res.json({
+												"original_url": user_url,
+												"short_url": currCount + 1
+											});
+										}
+									});
+								}
+							});
+						} else { //The record exists and we can skip to the end.
+							res.json({
+								"original_url": user_url,
+								"short_url": data.short_url
+							});
 						}
 					});
-
-					// 					var URLCount;
-
-					// 					countURLs(function(err, data) { //Counts how many URLs are in the database.
-					// 						if (err) {
-					// 							res.json(err);
-					// 						}
-					// 						URLCount = data;
-					// 					});
-
-					//var value = db.urls.count();
-
-					//res.json({"original_url":user_url,"short_url":value}); 
-					res.json({
-						"original_url": user_url,
-						"short_url": "7"
-					});
 				}
-			});
+			})
 		});
 
 
-		app.get("/api/shorturl/:input", function(req, res) { //User wants to load a website.
+		app.get("/api/shorturl/:input", function(req, res) { //User clicks a link or enters URL. (Get, not Post.)
 			let user_input = req.params.input;
 
 			if (isNaN(user_input)) { //user_input includes non-numeric characters.
+				console.log("/api/shorurl/:input - catch: non-numeric characters.");
 				res.json({
 					error: "Wrong Format"
 				});
 			}
 
 			findByID(user_input, function(err, data) { //Searches database for the user.
-				if (err) {
-					console.log("findOneURL - Error");
-				}
+				if (err) { //Error with database.
+					console.log("findById - Error: ", err);
+					res.json({
+						"error": "Database error: .findOne"
+					});
 
-				if (data) {
-					console.log("findOneURL - No Error", data.orig_url);
+
+				} else if (data) { //Successfully found URL in database.
+					console.log("findById - No Error", data.orig_url);
 					res.redirect('https://' + data.orig_url);
-				} else {
+				} else { //Was not able to find URL in database.
+					console.log("findById - catch: No matching URL in database");
 					res.json({
 						error: "No short url found for given input"
 					});
 				}
-
 			});
 		});
-
-		//     var findOneByFood = function(food, done) {
-		//   Person.findOne({favoriteFoods:food}, (err, data) => {
-		//       if(err) {
-		//          done(err); 
-		//       }
-		//     done(null, data);
-		//     }) 
-		// };
-
-    
-		var findOneURL = function(user_url, done) { //Checks database for the URL
-			URL.findOne({
-				orig_url: user_url
-			}, (err, data) => {
-				if (err) {
-					done(err);
-				}
-				done(null, data);
-			})
-		}
-
-
-		var findByID = function(url_id, done) { //Checks database for the ID
-			URL.findOne({
-				short_url: url_id
-			}, (err, data) => {
-				if (err) {
-					done(err);
-				}
-				done(null, data);
-			})
-		}
-
-
-		var findEditThenSave = function(user_url, done) {
-			URL.findById(user_url, (err, data) => {
-				if (err) {
-					done(err);
-				}
-
-				data.save((err, data) => {
-					if (err) {
-						done(err);
-					}
-					done(null, data);
-				});
-			})
-		};
-
-
-		//     var findEditThenSave = function(personId, done) {
-		//   var foodToAdd = 'hamburger';
-
-		//   Person.findById(personId, (err, data) => {
-		//     if(err) {
-		//        done(err); 
-		//     }
-
-		//     data.favoriteFoods.push(foodToAdd);
-
-		//     data.save((err, data) => {
-		//       if(err) {
-		//          done(err); 
-		//       }
-		//       done(null, data);    
-		//     });
-		//   })
-		// };
-
-
-		var createAndSaveURL = function(user_url, done) {
-			var newURL = new URL({
-				orig_url: user_url,
-				short_url: 1
-			});
-
-			newURL.save(function(err, data) {
-				if (err) return done(err)
-				return done(null, data);
-			});
-		}
 
 
 		var countURLs = function(done) {
@@ -270,38 +179,63 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 		};
 
 
-		/*
-		var findRecordByURL = function(recordURL, done) {
-		  URL.find({orig_url:recordURL}, (err, data) => {
-		      if(err) {
-		        console.log ("Error");
-		         done(err); 
-		      }
-		    console.log ("Done!");
-		    done(null, data);
-		    }) 
+		// 		var createAndSaveURL = function(user_url, currCount, done) {
+		// 			var newURL = new URL({
+		// 				orig_url: user_url,
+		// 				short_url: currCount + 1
+		// 			});
+
+		// 			newURL.save(function(err, data) {
+		// 				if (err) return done(err)
+		// 				return done(null, data);
+		// 			});
+		// 		}
+
+
+		var findAndUpdateURL = function(user_url, currCount, done) { //Finds the URL and updates it.
+			URL.findOneAndUpdate({
+					orig_url: user_url
+				}, {
+					short_url: currCount + 1
+				}, {
+					upsert: true,
+					new: true
+				},
+				(err, data) => {
+					if (err) {
+						done(err);
+					}
+					done(null, data);
+				})
 		};
 
 
-		var findRecord = findRecordByURL('puppies');
+		var findByURL = function(user_url, done) { //Checks the database if the URL is there already.
+			URL.findOne({
+				orig_url: user_url
+			}, (err, data) => {
+				if (err) {
+					done(err);
+				}
+				done(null, data);
+			})
+		}
 
 
-		mongoose.connect(process.env.MONGO_URI, function(err, db) {
-		  if (err) throw err;
-		  var dbo = db.db("mydb");
-		  dbo.collection("customers").findOne({}, function(err, result) {
-		    if (err) throw err;
-		    console.log(result.name);
-		    db.close();
-		  });
-		});
+		var findByID = function(url_id, done) { //Searches database for the ID. Returns so can redirect.
+			URL.findOne({
+				short_url: url_id
+			}, (err, data) => {
+				if (err) {
+					done(err);
+				}
+				done(null, data);
+			})
+		}
 
-		*/
 
-    
 		app.listen(port, function() {
 			console.log('Node.js listening ...');
 		});
-
 	}
 });
