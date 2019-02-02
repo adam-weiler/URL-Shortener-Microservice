@@ -32,7 +32,6 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 
 		app.use('/public', express.static(process.cwd() + '/public'));
 
-
 		//Creates a URL model or Schema.
 		const urlSchema = new mongoose.Schema({
 			orig_url: {
@@ -50,7 +49,7 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 
 		const REPLACE_REGEX = /^https?:\/\//i //A Regex to strip the http(s):// from any URLs.
 
-
+    
 		app.get('/', function(req, res) {
 			res.sendFile(process.cwd() + '/views/index.html');
 		});
@@ -68,7 +67,7 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 
 			user_url = user_url.replace(REPLACE_REGEX, ''); //Strips off the http(s):// from the URL
 
-			dns.lookup(user_url, function onLookup(err, address, family) { //Checks if it's a valid URL.
+			dns.lookup(user_url, function onLookup(err, address, family) { //Checks if user_url is a valid URL.
 				if (err) { //There was not a valid dns.
 					console.log("dns.lookup - error: ", err);
 					res.json({
@@ -84,7 +83,7 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 							console.log("findByURL - user_url was found: ", data);
 						}
 
-						if (!data) { //The record doesn't exist, need to add it.
+						if (!data) { //The record doesn't exist, so we need to add it.
 							countURLs(function(err, data) { //Counts number of records in database.
 								if (err) { //Was not able to count records.
 									console.log("countURLs - Error: ", err);
@@ -94,21 +93,6 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 								} else { //Was able to count number of records.
 									let currCount = data;
 									console.log("countURLs - no error: ", currCount);
-
-									// createAndSaveURL(user_url, currCount, function(err, data) { //Creates and saves new user to database.
-									// 	if (err) { //Record not saved to database.
-									// 		console.log("createAndSaveURL - Error: ", err);
-									// 		res.json({
-									// 			"error": "Database error: .save"
-									// 		});
-									// 	} else { //New record saved to database.
-									// 		console.log("createAndSaveURL - No Error");
-									// 		res.json({
-									// 			"original_url": user_url,
-									// 			"short_url": currCount + 1
-									// 		});
-									// 	}
-									// });
 
 									findAndUpdateURL(user_url, currCount, function(err, data) {
 										if (err) { //Record not saved to database.
@@ -138,24 +122,22 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 		});
 
 
-		app.get("/api/shorturl/:input", function(req, res) { //User clicks a link or enters URL. (Get, not Post.)
+		app.get("/api/shorturl/:input", function(req, res) { //User clicks a link or enters URL. (Uses Get, not Post.)
 			let user_input = req.params.input;
 
-			if (isNaN(user_input)) { //user_input includes non-numeric characters.
+			if (isNaN(user_input)) { //user_input includes non-numeric characters and is invalid.
 				console.log("/api/shorurl/:input - catch: non-numeric characters.");
 				res.json({
 					error: "Wrong Format"
 				});
 			}
 
-			findByID(user_input, function(err, data) { //Searches database for the user.
+			findByID(user_input, function(err, data) { //Searches database for the user_input.
 				if (err) { //Error with database.
 					console.log("findById - Error: ", err);
 					res.json({
 						"error": "Database error: .findOne"
 					});
-
-
 				} else if (data) { //Successfully found URL in database.
 					console.log("findById - No Error", data.orig_url);
 					res.redirect('https://' + data.orig_url);
@@ -177,20 +159,7 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 				done(null, data);
 			})
 		};
-
-
-		// 		var createAndSaveURL = function(user_url, currCount, done) {
-		// 			var newURL = new URL({
-		// 				orig_url: user_url,
-		// 				short_url: currCount + 1
-		// 			});
-
-		// 			newURL.save(function(err, data) {
-		// 				if (err) return done(err)
-		// 				return done(null, data);
-		// 			});
-		// 		}
-
+    
 
 		var findAndUpdateURL = function(user_url, currCount, done) { //Finds the URL and updates it.
 			URL.findOneAndUpdate({
@@ -222,7 +191,7 @@ mongoose.connect(process.env.MONGO_URI, (err, db) => {
 		}
 
 
-		var findByID = function(url_id, done) { //Searches database for the ID. Returns so can redirect.
+		var findByID = function(url_id, done) { //Searches database for the url_ID. Returns so can redirect.
 			URL.findOne({
 				short_url: url_id
 			}, (err, data) => {
