@@ -1,7 +1,7 @@
 {
-  "name": "shorturl",
-  "version": "0.0.1",
-  "description": "API project for freeCodeCamp",
+  "name": "fcc-project-shorturl",
+  "version": "0.0.5",
+  "description": "The URL Shortener Microservice project from freeCodeCamp.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -18,12 +18,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://hyperdev.com/#!/project/welcome-project"
+    "url": "https://github.com/adam-weiler/URL-Shortener-Microservice"
   },
   "keywords": [
     "node",
-    "hyperdev",
-    "express"
+    "express",
+    "microservice",
+    "api",
+    "freecodecamp",
+    "glitch"
   ],
+  "author": "Adam Weiler",
   "license": "MIT"
 }
